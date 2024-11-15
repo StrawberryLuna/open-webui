@@ -21,10 +21,10 @@ from open_webui.env import (
     WEBUI_NAME,
     log,
 )
-from pydantic import BaseModel
+from pydantic import BaseModel  # Data validation and settings management
 from sqlalchemy import JSON, Column, DateTime, Integer, func
 
-
+# Custom logging filter class to filter out specific endpoint logs
 class EndpointFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         return record.getMessage().find("/health") == -1
@@ -58,22 +58,23 @@ def run_migrations():
 
 run_migrations()
 
-
+# Define the Config class for database storage
 class Config(Base):
     __tablename__ = "config"
 
+    # Database table columns for configuration management
     id = Column(Integer, primary_key=True)
     data = Column(JSON, nullable=False)
     version = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, nullable=False, server_default=func.now())
     updated_at = Column(DateTime, nullable=True, onupdate=func.now())
 
-
+# Load JSON configuration file from the data directory
 def load_json_config():
     with open(f"{DATA_DIR}/config.json", "r") as file:
         return json.load(file)
 
-
+# Save configuration data to the database
 def save_to_db(data):
     with get_db() as db:
         existing_config = db.query(Config).first()
@@ -86,7 +87,7 @@ def save_to_db(data):
             db.add(existing_config)
         db.commit()
 
-
+# Reset configuration by deleting entries in the database
 def reset_config():
     with get_db() as db:
         db.query(Config).delete()
@@ -94,6 +95,7 @@ def reset_config():
 
 
 # When initializing, check if config.json exists and migrate it to the database
+# Check if config.json exists; if so, load it and save to the database
 if os.path.exists(f"{DATA_DIR}/config.json"):
     data = load_json_config()
     save_to_db(data)
@@ -151,16 +153,17 @@ DEFAULT_CONFIG = {
     },
 }
 
-
+# Retrieves the latest configuration 
+# from the database, or use defaults if none found
 def get_config():
     with get_db() as db:
         config_entry = db.query(Config).order_by(Config.id.desc()).first()
         return config_entry.data if config_entry else DEFAULT_CONFIG
 
-
+# Store the retrieved configuration data in a global variable
 CONFIG_DATA = get_config()
 
-
+# Retrieve a specific value from the configuration
 def get_config_value(config_path: str):
     path_parts = config_path.split(".")
     cur_config = CONFIG_DATA
@@ -171,10 +174,10 @@ def get_config_value(config_path: str):
             return None
     return cur_config
 
-
+#tracks instances of persistent configurations
 PERSISTENT_CONFIG_REGISTRY = []
 
-
+# Save the provided configuration data
 def save_config(config):
     global CONFIG_DATA
     global PERSISTENT_CONFIG_REGISTRY
@@ -190,10 +193,10 @@ def save_config(config):
         return False
     return True
 
-
+# Defines a generic type for the PersistentConfig class
 T = TypeVar("T")
 
-
+# Persistent configuration class to handle environment variable settings
 class PersistentConfig(Generic[T]):
     def __init__(self, env_name: str, config_path: str, env_value: T):
         self.env_name = env_name
@@ -264,6 +267,7 @@ class AppConfig:
 # WEBUI_AUTH (Required for security)
 ####################################
 
+# Persistent configuration for JWT expiration setting
 JWT_EXPIRES_IN = PersistentConfig(
     "JWT_EXPIRES_IN", "auth.jwt_expiry", os.environ.get("JWT_EXPIRES_IN", "-1")
 )
@@ -272,18 +276,20 @@ JWT_EXPIRES_IN = PersistentConfig(
 # OAuth config
 ####################################
 
+# Enable OAuth signup option
 ENABLE_OAUTH_SIGNUP = PersistentConfig(
     "ENABLE_OAUTH_SIGNUP",
     "oauth.enable_signup",
     os.environ.get("ENABLE_OAUTH_SIGNUP", "False").lower() == "true",
 )
 
+# Merge accounts by email during OAuth signup
 OAUTH_MERGE_ACCOUNTS_BY_EMAIL = PersistentConfig(
     "OAUTH_MERGE_ACCOUNTS_BY_EMAIL",
     "oauth.merge_accounts_by_email",
     os.environ.get("OAUTH_MERGE_ACCOUNTS_BY_EMAIL", "False").lower() == "true",
 )
-
+# Initialize an empty dictionary to hold OAuth provider details
 OAUTH_PROVIDERS = {}
 
 GOOGLE_CLIENT_ID = PersistentConfig(
@@ -549,6 +555,7 @@ S3_ENDPOINT_URL = os.environ.get("S3_ENDPOINT_URL", None)
 # File Upload DIR
 ####################################
 
+#directories for file uploads and caching
 UPLOAD_DIR = f"{DATA_DIR}/uploads"
 Path(UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -661,6 +668,7 @@ OPENAI_API_BASE_URL = "https://api.openai.com/v1"
 # WEBUI
 ####################################
 
+# Persistent configuration for enabling user signup
 ENABLE_SIGNUP = PersistentConfig(
     "ENABLE_SIGNUP",
     "ui.enable_signup",
@@ -670,19 +678,20 @@ ENABLE_SIGNUP = PersistentConfig(
         else os.environ.get("ENABLE_SIGNUP", "True").lower() == "true"
     ),
 )
-
+# Enable or disable the login form on the UI
 ENABLE_LOGIN_FORM = PersistentConfig(
     "ENABLE_LOGIN_FORM",
     "ui.ENABLE_LOGIN_FORM",
     os.environ.get("ENABLE_LOGIN_FORM", "True").lower() == "true",
 )
-
+#Set default locale for the UI
 DEFAULT_LOCALE = PersistentConfig(
     "DEFAULT_LOCALE",
     "ui.default_locale",
     os.environ.get("DEFAULT_LOCALE", ""),
 )
-
+# Sets up default models for the application based on environment 
+# variables or provided defaults
 DEFAULT_MODELS = PersistentConfig(
     "DEFAULT_MODELS", "ui.default_models", os.environ.get("DEFAULT_MODELS", None)
 )
@@ -721,12 +730,16 @@ DEFAULT_PROMPT_SUGGESTIONS = PersistentConfig(
     ],
 )
 
+#Sets default role for new users, typically set to 'pending' 
+# until role is assigned
 DEFAULT_USER_ROLE = PersistentConfig(
     "DEFAULT_USER_ROLE",
     "ui.default_user_role",
     os.getenv("DEFAULT_USER_ROLE", "pending"),
 )
 
+# Configures user permissions for chat actions: 
+# deletion, editing, and temporary messages
 USER_PERMISSIONS_CHAT_DELETION = (
     os.environ.get("USER_PERMISSIONS_CHAT_DELETION", "True").lower() == "true"
 )
@@ -739,6 +752,8 @@ USER_PERMISSIONS_CHAT_TEMPORARY = (
     os.environ.get("USER_PERMISSIONS_CHAT_TEMPORARY", "True").lower() == "true"
 )
 
+# Aggregates chat permissions into a dictionary 
+# for easy access and management in the UI
 USER_PERMISSIONS = PersistentConfig(
     "USER_PERMISSIONS",
     "ui.user_permissions",
@@ -751,18 +766,22 @@ USER_PERMISSIONS = PersistentConfig(
     },
 )
 
-
+# Enables or disables the evaluation arena, 
+# where users can compare model responses
 ENABLE_EVALUATION_ARENA_MODELS = PersistentConfig(
     "ENABLE_EVALUATION_ARENA_MODELS",
     "evaluation.arena.enable",
     os.environ.get("ENABLE_EVALUATION_ARENA_MODELS", "True").lower() == "true",
 )
+# Configures models available in the evaluation arena feature
 EVALUATION_ARENA_MODELS = PersistentConfig(
     "EVALUATION_ARENA_MODELS",
     "evaluation.arena.models",
     [],
 )
 
+# Default configuration for an evaluation arena model, 
+# providing a profile image and description
 DEFAULT_ARENA_MODEL = {
     "id": "arena-model",
     "name": "Arena Model",
@@ -773,11 +792,14 @@ DEFAULT_ARENA_MODEL = {
     },
 }
 
+# Enables or disables the model filter feature,
+#  which restricts available models
 ENABLE_MODEL_FILTER = PersistentConfig(
     "ENABLE_MODEL_FILTER",
     "model_filter.enable",
     os.environ.get("ENABLE_MODEL_FILTER", "False").lower() == "true",
 )
+# Specifies a list of models to be included in the model filter
 MODEL_FILTER_LIST = os.environ.get("MODEL_FILTER_LIST", "")
 MODEL_FILTER_LIST = PersistentConfig(
     "MODEL_FILTER_LIST",
@@ -789,31 +811,38 @@ WEBHOOK_URL = PersistentConfig(
     "WEBHOOK_URL", "webhook_url", os.environ.get("WEBHOOK_URL", "")
 )
 
+# Enables or disables admin export functionality for data management
 ENABLE_ADMIN_EXPORT = os.environ.get("ENABLE_ADMIN_EXPORT", "True").lower() == "true"
 
+# Allows or disallows admin access to user chats
 ENABLE_ADMIN_CHAT_ACCESS = (
     os.environ.get("ENABLE_ADMIN_CHAT_ACCESS", "True").lower() == "true"
 )
 
+# Allows sharing of messages within a community, 
+# enabling collaborative features
 ENABLE_COMMUNITY_SHARING = PersistentConfig(
     "ENABLE_COMMUNITY_SHARING",
     "ui.enable_community_sharing",
     os.environ.get("ENABLE_COMMUNITY_SHARING", "True").lower() == "true",
 )
 
+# Enables message rating functionality for feedback purposes
 ENABLE_MESSAGE_RATING = PersistentConfig(
     "ENABLE_MESSAGE_RATING",
     "ui.enable_message_rating",
     os.environ.get("ENABLE_MESSAGE_RATING", "True").lower() == "true",
 )
 
-
+# Validation function for CORS origins; allows either
+#  all (*) or specific origins (like localhost)
 def validate_cors_origins(origins):
     for origin in origins:
         if origin != "*":
             validate_cors_origin(origin)
 
-
+# Validates a single CORS origin to ensure it has a 
+# valid scheme and netloc
 def validate_cors_origin(origin):
     parsed_url = urlparse(origin)
 
@@ -842,7 +871,8 @@ if "*" in CORS_ALLOW_ORIGIN:
 
 validate_cors_origins(CORS_ALLOW_ORIGIN)
 
-
+# Banner configuration for displaying messages 
+# or alerts to users on the UI
 class BannerModel(BaseModel):
     id: str
     type: str
@@ -861,13 +891,15 @@ except Exception as e:
 
 WEBUI_BANNERS = PersistentConfig("WEBUI_BANNERS", "ui.banners", banners)
 
-
+# Admin details configuration, showing or hiding
+#  based on environment settings
 SHOW_ADMIN_DETAILS = PersistentConfig(
     "SHOW_ADMIN_DETAILS",
     "auth.admin.show",
     os.environ.get("SHOW_ADMIN_DETAILS", "true").lower() == "true",
 )
 
+# Configures the admin email for authentication or contact purposes
 ADMIN_EMAIL = PersistentConfig(
     "ADMIN_EMAIL",
     "auth.admin.email",
@@ -879,38 +911,44 @@ ADMIN_EMAIL = PersistentConfig(
 # TASKS
 ####################################
 
-
+# Sets default model for tasks, used 
+# for model selection in various backend processes
 TASK_MODEL = PersistentConfig(
     "TASK_MODEL",
     "task.model.default",
     os.environ.get("TASK_MODEL", ""),
 )
 
+# External model configuration for tasks, allowing alternative model use
 TASK_MODEL_EXTERNAL = PersistentConfig(
     "TASK_MODEL_EXTERNAL",
     "task.model.external",
     os.environ.get("TASK_MODEL_EXTERNAL", ""),
 )
 
+# Prompt templates for generating titles within tasks
 TITLE_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "TITLE_GENERATION_PROMPT_TEMPLATE",
     "task.title.prompt_template",
     os.environ.get("TITLE_GENERATION_PROMPT_TEMPLATE", ""),
 )
 
+# Prompt templates for generating tags within tasks
 TAGS_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "TAGS_GENERATION_PROMPT_TEMPLATE",
     "task.tags.prompt_template",
     os.environ.get("TAGS_GENERATION_PROMPT_TEMPLATE", ""),
 )
 
+# Enables or disables search query generation within tasks
 ENABLE_SEARCH_QUERY = PersistentConfig(
     "ENABLE_SEARCH_QUERY",
     "task.search.enable",
     os.environ.get("ENABLE_SEARCH_QUERY", "True").lower() == "true",
 )
 
-
+# Template for generating tool function
+#  calls, used in task processing workflows
 SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE = PersistentConfig(
     "SEARCH_QUERY_GENERATION_PROMPT_TEMPLATE",
     "task.search.prompt_template",
@@ -929,12 +967,15 @@ TOOLS_FUNCTION_CALLING_PROMPT_TEMPLATE = PersistentConfig(
 # Vector Database
 ####################################
 
+# The VECTOR_DB environment variable selects
+# the vector database; defaults to "chroma" if not set
 VECTOR_DB = os.environ.get("VECTOR_DB", "chroma")
 
 # Chroma
 CHROMA_DATA_PATH = f"{DATA_DIR}/vector_db"
 CHROMA_TENANT = os.environ.get("CHROMA_TENANT", chromadb.DEFAULT_TENANT)
 CHROMA_DATABASE = os.environ.get("CHROMA_DATABASE", chromadb.DEFAULT_DATABASE)
+# Chroma HTTP connection settings
 CHROMA_HTTP_HOST = os.environ.get("CHROMA_HTTP_HOST", "")
 CHROMA_HTTP_PORT = int(os.environ.get("CHROMA_HTTP_PORT", "8000"))
 # Comma-separated list of header=value pairs
@@ -960,6 +1001,7 @@ QDRANT_URI = os.environ.get("QDRANT_URI", None)
 ####################################
 
 # RAG Content Extraction
+# Specifies content extraction engine
 CONTENT_EXTRACTION_ENGINE = PersistentConfig(
     "CONTENT_EXTRACTION_ENGINE",
     "rag.CONTENT_EXTRACTION_ENGINE",
@@ -1013,18 +1055,22 @@ ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION = PersistentConfig(
     os.environ.get("ENABLE_RAG_WEB_LOADER_SSL_VERIFICATION", "True").lower() == "true",
 )
 
+# Embedding engine and model configurations for RAG
 RAG_EMBEDDING_ENGINE = PersistentConfig(
     "RAG_EMBEDDING_ENGINE",
     "rag.embedding_engine",
     os.environ.get("RAG_EMBEDDING_ENGINE", ""),
 )
 
+# Option to extract images from PDF 
+# files when performing content extraction
 PDF_EXTRACT_IMAGES = PersistentConfig(
     "PDF_EXTRACT_IMAGES",
     "rag.pdf_extract_images",
     os.environ.get("PDF_EXTRACT_IMAGES", "False").lower() == "true",
 )
 
+# Embedding model used for RAG
 RAG_EMBEDDING_MODEL = PersistentConfig(
     "RAG_EMBEDDING_MODEL",
     "rag.embedding_model",
@@ -1032,6 +1078,7 @@ RAG_EMBEDDING_MODEL = PersistentConfig(
 )
 log.info(f"Embedding model set: {RAG_EMBEDDING_MODEL.value}")
 
+# RAG embedding model auto-update settings
 RAG_EMBEDDING_MODEL_AUTO_UPDATE = (
     os.environ.get("RAG_EMBEDDING_MODEL_AUTO_UPDATE", "").lower() == "true"
 )
@@ -1039,7 +1086,7 @@ RAG_EMBEDDING_MODEL_AUTO_UPDATE = (
 RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE = (
     os.environ.get("RAG_EMBEDDING_MODEL_TRUST_REMOTE_CODE", "").lower() == "true"
 )
-
+# Controls the batch size for embedding generation
 RAG_EMBEDDING_BATCH_SIZE = PersistentConfig(
     "RAG_EMBEDDING_BATCH_SIZE",
     "rag.embedding_batch_size",
@@ -1162,6 +1209,7 @@ RAG_WEB_SEARCH_DOMAIN_FILTER_LIST = PersistentConfig(
     ],
 )
 
+#search engine configurations for RAG using external APIs
 SEARXNG_QUERY_URL = PersistentConfig(
     "SEARXNG_QUERY_URL",
     "rag.web.search.searxng_query_url",
@@ -1242,31 +1290,39 @@ RAG_WEB_SEARCH_CONCURRENT_REQUESTS = PersistentConfig(
 
 
 ####################################
-# Images
+# Images - Generation
 ####################################
 
+# Choose the image generation engine (default is 'openai')
 IMAGE_GENERATION_ENGINE = PersistentConfig(
     "IMAGE_GENERATION_ENGINE",
     "image_generation.engine",
     os.getenv("IMAGE_GENERATION_ENGINE", "openai"),
 )
 
+# Enable or disable image generation by setting this to "true" or "false"
 ENABLE_IMAGE_GENERATION = PersistentConfig(
     "ENABLE_IMAGE_GENERATION",
     "image_generation.enable",
     os.environ.get("ENABLE_IMAGE_GENERATION", "").lower() == "true",
 )
+
+# URL for Automatic1111 engine's API (if used)
 AUTOMATIC1111_BASE_URL = PersistentConfig(
     "AUTOMATIC1111_BASE_URL",
     "image_generation.automatic1111.base_url",
     os.getenv("AUTOMATIC1111_BASE_URL", ""),
 )
+
+# Authentication key for Automatic1111's API (if used)
 AUTOMATIC1111_API_AUTH = PersistentConfig(
     "AUTOMATIC1111_API_AUTH",
     "image_generation.automatic1111.api_auth",
     os.getenv("AUTOMATIC1111_API_AUTH", ""),
 )
 
+# Configuration scale for Automatic1111 
+# (defines image quality/complexity)
 AUTOMATIC1111_CFG_SCALE = PersistentConfig(
     "AUTOMATIC1111_CFG_SCALE",
     "image_generation.automatic1111.cfg_scale",
@@ -1277,7 +1333,8 @@ AUTOMATIC1111_CFG_SCALE = PersistentConfig(
     ),
 )
 
-
+# The image sampler type used 
+# in Automatic1111 (for image generation randomness)
 AUTOMATIC1111_SAMPLER = PersistentConfig(
     "AUTOMATIC1111_SAMPLERE",
     "image_generation.automatic1111.sampler",
@@ -1288,6 +1345,8 @@ AUTOMATIC1111_SAMPLER = PersistentConfig(
     ),
 )
 
+# The scheduler type used in Automatic1111 
+# (controls the progression of steps)
 AUTOMATIC1111_SCHEDULER = PersistentConfig(
     "AUTOMATIC1111_SCHEDULER",
     "image_generation.automatic1111.scheduler",
@@ -1298,6 +1357,7 @@ AUTOMATIC1111_SCHEDULER = PersistentConfig(
     ),
 )
 
+# Base URL for ComfyUI, an alternative image generation framework
 COMFYUI_BASE_URL = PersistentConfig(
     "COMFYUI_BASE_URL",
     "image_generation.comfyui.base_url",
@@ -1414,19 +1474,21 @@ COMFYUI_DEFAULT_WORKFLOW = """
 }
 """
 
-
+# Set custom ComfyUI workflow or use default
 COMFYUI_WORKFLOW = PersistentConfig(
     "COMFYUI_WORKFLOW",
     "image_generation.comfyui.workflow",
     os.getenv("COMFYUI_WORKFLOW", COMFYUI_DEFAULT_WORKFLOW),
 )
 
+# Custom nodes for ComfyUI workflows
 COMFYUI_WORKFLOW_NODES = PersistentConfig(
     "COMFYUI_WORKFLOW",
     "image_generation.comfyui.nodes",
     [],
 )
 
+# OpenAI Image Generation API settings: URL and API key
 IMAGES_OPENAI_API_BASE_URL = PersistentConfig(
     "IMAGES_OPENAI_API_BASE_URL",
     "image_generation.openai.api_base_url",
@@ -1438,10 +1500,12 @@ IMAGES_OPENAI_API_KEY = PersistentConfig(
     os.getenv("IMAGES_OPENAI_API_KEY", OPENAI_API_KEY),
 )
 
+# Default image size for generation
 IMAGE_SIZE = PersistentConfig(
     "IMAGE_SIZE", "image_generation.size", os.getenv("IMAGE_SIZE", "512x512")
 )
 
+# The number of steps to generate an image (higher = more detailed)
 IMAGE_STEPS = PersistentConfig(
     "IMAGE_STEPS", "image_generation.steps", int(os.getenv("IMAGE_STEPS", 50))
 )
@@ -1453,22 +1517,25 @@ IMAGE_GENERATION_MODEL = PersistentConfig(
 )
 
 ####################################
-# Audio
+# Audio - Processing
 ####################################
 
 # Transcription
+# Whisper model for Speech-to-Text (STT)
 WHISPER_MODEL = PersistentConfig(
     "WHISPER_MODEL",
     "audio.stt.whisper_model",
     os.getenv("WHISPER_MODEL", "base"),
 )
 
+# Directory for storing Whisper models
 WHISPER_MODEL_DIR = os.getenv("WHISPER_MODEL_DIR", f"{CACHE_DIR}/whisper/models")
+# Enable automatic updates of Whisper models
 WHISPER_MODEL_AUTO_UPDATE = (
     os.environ.get("WHISPER_MODEL_AUTO_UPDATE", "").lower() == "true"
 )
 
-
+# OpenAI API settings for Audio STT (Speech-to-Text)
 AUDIO_STT_OPENAI_API_BASE_URL = PersistentConfig(
     "AUDIO_STT_OPENAI_API_BASE_URL",
     "audio.stt.openai.api_base_url",
@@ -1493,6 +1560,7 @@ AUDIO_STT_MODEL = PersistentConfig(
     os.getenv("AUDIO_STT_MODEL", ""),
 )
 
+# OpenAI API settings for Text-to-Speech (TTS)
 AUDIO_TTS_OPENAI_API_BASE_URL = PersistentConfig(
     "AUDIO_TTS_OPENAI_API_BASE_URL",
     "audio.tts.openai.api_base_url",
@@ -1510,6 +1578,7 @@ AUDIO_TTS_API_KEY = PersistentConfig(
     os.getenv("AUDIO_TTS_API_KEY", ""),
 )
 
+# Text-to-Speech engine and model settings
 AUDIO_TTS_ENGINE = PersistentConfig(
     "AUDIO_TTS_ENGINE",
     "audio.tts.engine",
@@ -1523,24 +1592,28 @@ AUDIO_TTS_MODEL = PersistentConfig(
     os.getenv("AUDIO_TTS_MODEL", "tts-1"),  # OpenAI default model
 )
 
+# Select voice for TTS (e.g., "alloy" for OpenAI's default voice)
 AUDIO_TTS_VOICE = PersistentConfig(
     "AUDIO_TTS_VOICE",
     "audio.tts.voice",
     os.getenv("AUDIO_TTS_VOICE", "alloy"),  # OpenAI default voice
 )
 
+# Split TTS text by punctuation marks for smoother speech
 AUDIO_TTS_SPLIT_ON = PersistentConfig(
     "AUDIO_TTS_SPLIT_ON",
     "audio.tts.split_on",
     os.getenv("AUDIO_TTS_SPLIT_ON", "punctuation"),
 )
 
+# Azure Speech-to-Text settings for TTS
 AUDIO_TTS_AZURE_SPEECH_REGION = PersistentConfig(
     "AUDIO_TTS_AZURE_SPEECH_REGION",
     "audio.tts.azure.speech_region",
     os.getenv("AUDIO_TTS_AZURE_SPEECH_REGION", "eastus"),
 )
 
+# Output format for Azure TTS
 AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT = PersistentConfig(
     "AUDIO_TTS_AZURE_SPEECH_OUTPUT_FORMAT",
     "audio.tts.azure.speech_output_format",

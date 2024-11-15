@@ -10,7 +10,7 @@ from sqlalchemy import BigInteger, Column, String, Text
 # User DB Schema
 ####################
 
-
+# Defines the User model, which maps to the "user" table in the database
 class User(Base):
     __tablename__ = "user"
 
@@ -20,6 +20,7 @@ class User(Base):
     role = Column(String)
     profile_image_url = Column(Text)
 
+    # Timestamps for user's last activity, creation, and last update
     last_active_at = Column(BigInteger)
     updated_at = Column(BigInteger)
     created_at = Column(BigInteger)
@@ -30,13 +31,13 @@ class User(Base):
 
     oauth_sub = Column(Text, unique=True)
 
-
+# User settings schema
 class UserSettings(BaseModel):
     ui: Optional[dict] = {}
     model_config = ConfigDict(extra="allow")
     pass
 
-
+# User model schema for validation 
 class UserModel(BaseModel):
     id: str
     name: str
@@ -61,19 +62,19 @@ class UserModel(BaseModel):
 # Forms
 ####################
 
-
+# Updates user role
 class UserRoleUpdateForm(BaseModel):
     id: str
     role: str
 
-
+# Updates basic user info
 class UserUpdateForm(BaseModel):
     name: str
     email: str
     profile_image_url: str
     password: Optional[str] = None
 
-
+# Table for handling user operations in the database
 class UsersTable:
     def insert_new_user(
         self,
@@ -107,6 +108,7 @@ class UsersTable:
             else:
                 return None
 
+    # Gets info of User based on ID
     def get_user_by_id(self, id: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
@@ -115,6 +117,7 @@ class UsersTable:
         except Exception:
             return None
 
+    # Gets info of User based on API key
     def get_user_by_api_key(self, api_key: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
@@ -122,7 +125,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+    # Gets a user by email
     def get_user_by_email(self, email: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
@@ -130,7 +133,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+    # Gets a user by OAuth subject identifier
     def get_user_by_oauth_sub(self, sub: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
@@ -138,7 +141,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+    # Gets a list of users
     def get_users(self, skip: int = 0, limit: int = 50) -> list[UserModel]:
         with get_db() as db:
             users = (
@@ -147,11 +150,12 @@ class UsersTable:
                 .all()
             )
             return [UserModel.model_validate(user) for user in users]
-
+    # Gets the total number of users 
     def get_num_users(self) -> Optional[int]:
         with get_db() as db:
             return db.query(User).count()
 
+    # Gets the first user by creation date
     def get_first_user(self) -> UserModel:
         try:
             with get_db() as db:
@@ -159,7 +163,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+    # Updates a users role by ID
     def update_user_role_by_id(self, id: str, role: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
@@ -169,7 +173,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+    # Updates a users profile image by ID
     def update_user_profile_image_url_by_id(
         self, id: str, profile_image_url: str
     ) -> Optional[UserModel]:
@@ -184,7 +188,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+    # Updates a user's last active timestamp by ID
     def update_user_last_active_by_id(self, id: str) -> Optional[UserModel]:
         try:
             with get_db() as db:
@@ -197,7 +201,7 @@ class UsersTable:
                 return UserModel.model_validate(user)
         except Exception:
             return None
-
+     # Updates a user's OAuth subject by ID
     def update_user_oauth_sub_by_id(
         self, id: str, oauth_sub: str
     ) -> Optional[UserModel]:
@@ -222,7 +226,7 @@ class UsersTable:
                 # return UserModel(**user.dict())
         except Exception:
             return None
-
+    # Deletes a user and their chats by ID
     def delete_user_by_id(self, id: str) -> bool:
         try:
             # Delete User Chats
@@ -239,7 +243,7 @@ class UsersTable:
                 return False
         except Exception:
             return False
-
+    # Updates a user's API key by ID
     def update_user_api_key_by_id(self, id: str, api_key: str) -> str:
         try:
             with get_db() as db:
@@ -248,7 +252,7 @@ class UsersTable:
                 return True if result == 1 else False
         except Exception:
             return False
-
+    # Gets a users API Key by ID
     def get_user_api_key_by_id(self, id: str) -> Optional[str]:
         try:
             with get_db() as db:
@@ -257,5 +261,5 @@ class UsersTable:
         except Exception:
             return None
 
-
+# instance of UserTable to manage users
 Users = UsersTable()
