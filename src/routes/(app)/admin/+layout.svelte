@@ -63,11 +63,11 @@
 
 						<a
 							class="min-w-fit rounded-full p-1.5 px-3 {$page.url.pathname.includes(
-								'/admin/evaluations'
+								'/admin/roles'
 							)
 								? 'bg-gray-50 dark:bg-gray-850'
 								: ''} transition"
-							href="/admin/evaluations">{$i18n.t('Evaluations')}</a
+							href="/admin/roles">{$i18n.t('Roles')}</a
 						>
 
 						<a
